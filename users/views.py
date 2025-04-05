@@ -15,6 +15,7 @@ from django.contrib.auth import authenticate
 from rest_framework import generics
 from .models import User
 from api.views import IsStaffOrSuperUser
+from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -232,6 +233,7 @@ class UpdateUserAvatar(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProfileSerializerForUpdate
     queryset = Profile.objects.all()
+    parser_classes = [MultiPartParser, FormParser]
     lookup_field = "profile_id"
     
     def update(self, request, *args, **kwargs):

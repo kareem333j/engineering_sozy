@@ -168,9 +168,9 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------
 # Cloudinary
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv("CLOUDINARY_CLOUD_NAME"),
-    'API_KEY': os.getenv("CLOUDINARY_API_KEY"),
-    'API_SECRET': os.getenv("CLOUDINARY_API_SECRET"),
-    'SECURE': True
+    'CLOUD_NAME': 'drri0et21',
+    'API_KEY': '435676498228376',
+    'API_SECRET': 'CanY83y8alvsrNNMn29YtF21hlU',
 }
+
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
