@@ -154,15 +154,8 @@ class BlacklistTokenUpdateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # التحقق من صحة الـ token قبل إضافته للقائمة السوداء
-            try:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            except Exception as e:
-                return Response(
-                    {"error": f"Invalid token: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            token = RefreshToken(refresh_token)
+            token.blacklist()
 
             auth = CookieJWTAuthentication()
             user_auth_tuple = auth.authenticate(request)
@@ -177,20 +170,8 @@ class BlacklistTokenUpdateView(APIView):
                 {"message": "Logged out successfully"},
                 status=status.HTTP_205_RESET_CONTENT
             )
-            
-            # حذف الكوكيز بشكل صريح
-            response.delete_cookie(
-                "access_token", 
-                path="/", 
-                samesite="None",
-                secure=True
-            )
-            response.delete_cookie(
-                "refresh_token", 
-                path="/", 
-                samesite="None",
-                secure=True
-            )
+            response.delete_cookie("access_token", path="/", samesite="None")
+            response.delete_cookie("refresh_token", path="/", samesite="None")
 
             return response
         except Exception as e:
