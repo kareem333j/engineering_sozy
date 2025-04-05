@@ -3,6 +3,10 @@ from datetime import timedelta
 import dj_database_url
 import os
 from dotenv import load_dotenv
+from cloudinary.uploader import upload
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 load_dotenv()  # لتحميل القيم من ملف .env أثناء التطوير
 
@@ -168,9 +172,13 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------
 # Cloudinary
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'drri0et21',
-    'API_KEY': '435676498228376',
-    'API_SECRET': 'CanY83y8alvsrNNMn29YtF21hlU',
+    'CLOUD_NAME': 'dpnp1bhgc',
+    'API_KEY': '297753111483174',
+    'API_SECRET': 'rfkmRfeKWsry6J-yByEAkL7vrp8',
 }
-
+cloudinary.config( 
+  cloud_name = CLOUDINARY_STORAGE['CLOUD_NAME'],
+  api_key = CLOUDINARY_STORAGE['API_KEY'],
+  api_secret = CLOUDINARY_STORAGE['API_SECRET']
+)
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

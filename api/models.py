@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import Profile
+from cloudinary.models import CloudinaryField
 
 class ActiveObjectsQuerySet(models.QuerySet):
     def active(self):
@@ -12,7 +13,7 @@ class Course(models.Model):
     
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    cover = models.ImageField(upload_to='courses/covers/', blank=True, null=True)
+    cover = CloudinaryField('image', folder='courses/covers', blank=True, null=True)
     created_dt = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_dt = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -28,7 +29,7 @@ class Video(models.Model):
     description = models.TextField(blank=True, null=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='videos')
     embed_code = models.TextField(blank=False, null=False)
-    cover = models.ImageField(upload_to='courses/videos/covers/', blank=True, null=True)
+    cover = CloudinaryField('image', folder='courses/videos/covers', blank=True, null=True)
     created_dt = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_dt = models.DateTimeField(auto_now=True, null=True, blank=True)
     is_active = models.BooleanField(default=True)

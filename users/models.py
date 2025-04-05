@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.conf import settings
+from cloudinary.models import CloudinaryField
 
 class Website(models.Model):
     name = models.CharField(max_length=300, null=True, blank=True)
@@ -74,7 +75,7 @@ class Profile(models.Model):
     profile_id = models.CharField(max_length=20, unique=True, blank=True, null=True) 
     full_name = models.CharField(max_length=500, blank=False, null=False) 
     bio = models.TextField(blank=True, null=True)
-    avatar = models.ImageField(blank=True, null=True)
+    avatar = CloudinaryField('image', folder='avatars/', blank=True, null=True)
     devices = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
     is_private = models.BooleanField(default=False)

@@ -32,10 +32,6 @@
         "dest": "core/wsgi.py"
       },
       {
-        "src": "/users/(.*)",
-        "dest": "core/wsgi.py"
-      },
-      {
         "src": "/(.*)",
         "dest": "core/wsgi.py"
       }
