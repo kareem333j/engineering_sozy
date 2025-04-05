@@ -172,10 +172,11 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------
 # Cloudinary
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dpnp1bhgc',
-    'API_KEY': '297753111483174',
-    'API_SECRET': 'rfkmRfeKWsry6J-yByEAkL7vrp8',
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
+
 cloudinary.config( 
   cloud_name = CLOUDINARY_STORAGE['CLOUD_NAME'],
   api_key = CLOUDINARY_STORAGE['API_KEY'],
