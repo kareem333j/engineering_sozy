@@ -2,24 +2,18 @@ from pathlib import Path
 from datetime import timedelta
 import dj_database_url
 import os
-from dotenv import load_dotenv
-from cloudinary.uploader import upload
 import cloudinary
-import cloudinary.uploader
 import cloudinary.api
 
-load_dotenv()  # لتحميل القيم من ملف .env أثناء التطوير
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ------------------------------------------------------
-# ⚙️ البيئة
+# env
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
-# ------------------------------------------------------
-# التطبيقات
+# apps
 INSTALLED_APPS = [
     "corsheaders",
     'django.contrib.admin',
@@ -69,16 +63,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# ------------------------------------------------------
-# قاعدة البيانات
+# database
 DATABASES = {
     "default": dj_database_url.parse(
         os.getenv("DATABASE_URL", "sqlite:///db.sqlite3")
     )
 }
 
-# ------------------------------------------------------
-# التحقق من كلمات السر
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -86,27 +77,22 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# ------------------------------------------------------
-# اللغة والتوقيت
+# date
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = "Africa/Cairo"
 USE_I18N = True
 USE_TZ = True
 
-# ------------------------------------------------------
-# الملفات الثابتة
+# static
 STATIC_URL = 'static/'
 
-# ------------------------------------------------------
-# موديل اليوزر
+# user model
 AUTH_USER_MODEL = "users.User"
 
-# ------------------------------------------------------
-# الإعداد الافتراضي للمفتاح الأساسي
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ------------------------------------------------------
-# إعدادات السيكيوريتي و CORS
+# cors settings
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
@@ -116,7 +102,6 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
 CORS_ALLOWED_WHITELIST = os.getenv("CORS_ALLOWED_WHITELIST", "").split(",")
 
-CORS_ALLOW_ALL_ORIGINS = True
 CSRF_COOKIE_SAMESITE = "None"
 
 CORS_ALLOW_METHODS = (
@@ -137,13 +122,15 @@ CORS_ALLOW_HEADERS = (
     "x-requested-with",
 )
 
-# ------------------------------------------------------
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+
 # JWT + REST Framework
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("ACCESS_TOKEN_LIFETIME", 5))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("REFRESH_TOKEN_LIFETIME_DAYS", 7))),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer", "JWT"),
@@ -169,7 +156,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-# ------------------------------------------------------
 # Cloudinary
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
