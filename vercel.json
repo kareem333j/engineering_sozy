@@ -1,0 +1,44 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "manage.py",
+        "use": "@vercel/python"
+      },
+      {
+        "src": "core/wsgi.py",
+        "use": "@vercel/python",
+        "config": {
+          "maxLambdaSize": "15mb",
+          "runtime": "python3.12",
+          "environment": {
+            "DJANGO_SETTINGS_MODULE": "core.settings",
+            "PYTHONUNBUFFERED": "1"
+          }
+        }
+      }
+    ],
+    "routes": [
+      {
+        "src": "/static/(.*)",
+        "dest": "/static/$1"
+      },
+      {
+        "src": "/media/(.*)",
+        "dest": "/media/$1"
+      },
+      {
+        "src": "/api/(.*)",
+        "dest": "core/wsgi.py"
+      },
+      {
+        "src": "/users/(.*)",
+        "dest": "core/wsgi.py"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "core/wsgi.py"
+      }
+    ]
+  }
+  
