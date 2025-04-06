@@ -3,11 +3,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
 from django.utils.timezone import now
 import datetime
 from .serializers import *
-from rest_framework_simplejwt.views import TokenRefreshView
 from .authentication import CookieJWTAuthentication
 from .models import Profile
 from django.shortcuts import get_object_or_404
@@ -17,7 +16,9 @@ from .models import User
 from api.views import IsStaffOrSuperUser
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
 from django.conf import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
@@ -29,10 +30,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             profile = Profile.objects.get(user=user)
 
             if profile.is_logged_in:
+                logger.warning(f"User {user.id} attempted login while already logged in")
                 return Response(
-                    {
-                        "error": "هذا الحساب قيد الاستخدام حالياً من شخص آخر، لا يمكنك استخدامه."
-                    },
+                    {"error": "هذا الحساب قيد الاستخدام حالياً من شخص آخر، لا يمكنك استخدامه."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -49,7 +49,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
             if user is not None:
                 profile = get_object_or_404(Profile, user=user)
-
                 profile.is_logged_in = True
                 profile.current_session_key = request.session.session_key
                 profile.save()
@@ -62,7 +61,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     profile.save()
 
             response.set_cookie(
-                key="access_token",
+                key=settings.SIMPLE_JWT['AUTH_COOKIE'],
                 value=access_token,
                 httponly=True,
                 secure=True,
@@ -72,7 +71,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             )
 
             response.set_cookie(
-                key="refresh_token",
+                key=settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
                 value=refresh_token,
                 httponly=True,
                 secure=True,
@@ -84,16 +83,20 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             response.data.pop("access")
             response.data.pop("refresh")
 
+            logger.info(f"User {user.id} logged in successfully")
+
         return response
 
 
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get("refresh_token")
+        refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
 
         if not refresh_token:
+            logger.warning("Refresh token not found in cookies")
             return Response(
-                {"error": "No refresh token found"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "No refresh token found"}, 
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
         request.data["refresh"] = refresh_token
@@ -103,67 +106,17 @@ class CustomTokenRefreshView(TokenRefreshView):
             access_token = response.data.get("access")
             if access_token:
                 response.set_cookie(
-                    key="access_token",
+                    key=settings.SIMPLE_JWT['AUTH_COOKIE'],
                     value=access_token,
                     httponly=True,
                     secure=True,
                     samesite="None",
                     path="/",
+                    expires=now() + datetime.timedelta(minutes=10),
                 )
+                logger.info("Token refreshed successfully")
 
         return response
-
-
-class CustomUserCreate(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        reg_serializer = RegisterSerializer(data=request.data)
-        if reg_serializer.is_valid():
-            new_user = reg_serializer.save()
-            if new_user:
-                return Response(
-                    {"message": "User created successfully!"},
-                    status=status.HTTP_201_CREATED,
-                )
-        return Response(reg_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class BlacklistTokenUpdateView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        try:
-            refresh_token = request.COOKIES.get("refresh_token")
-            if not refresh_token:
-                return Response(
-                    {"error": "Refresh token not found"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-
-            auth = CookieJWTAuthentication()
-            user_auth_tuple = auth.authenticate(request)
-            if user_auth_tuple:
-                user, _ = user_auth_tuple
-                profile = get_object_or_404(Profile, user=user)
-                profile.is_logged_in = False
-                profile.current_session_key = None
-                profile.save()
-
-            response = Response(
-                {"message": "Logged out successfully"},
-                status=status.HTTP_205_RESET_CONTENT,
-            )
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
-
-            return response
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class LogoutView(APIView):
@@ -171,17 +124,17 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # 1. Blacklist the refresh token if exists
-            refresh_token = request.COOKIES.get("refresh_token")
+            # 1. Blacklist the refresh token
+            refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
             if refresh_token:
                 try:
                     token = RefreshToken(refresh_token)
                     token.blacklist()
-                except Exception:
-                    # ممكن يكون التوكن أصلاً مش صالح أو اتحذف
-                    pass
+                    logger.info("Refresh token blacklisted successfully")
+                except Exception as e:
+                    logger.warning(f"Failed to blacklist token: {str(e)}")
 
-            # 2. Logout user from server session
+            # 2. Update user profile
             auth = CookieJWTAuthentication()
             user_auth_tuple = auth.authenticate(request)
             if user_auth_tuple:
@@ -190,6 +143,7 @@ class LogoutView(APIView):
                 profile.is_logged_in = False
                 profile.current_session_key = None
                 profile.save()
+                logger.info(f"User {user.id} logged out successfully")
 
             # 3. Clear cookies
             response = Response(
@@ -197,20 +151,54 @@ class LogoutView(APIView):
                 status=status.HTTP_200_OK,
             )
             response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE"],
+                settings.SIMPLE_JWT['AUTH_COOKIE'],
                 path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+                samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE'],
             )
             response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
+                settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
                 path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+                samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE'],
             )
 
             return response
 
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(f"Logout error: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An error occurred during logout"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class CheckAuthView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user = request.user
+            profile = get_object_or_404(Profile, user=user)
+            profile_data = ProfileSerializer(profile, context={"request": request}).data
+
+            logger.info(f"Authentication check for user {user.id}")
+            
+            return Response({
+                "authenticated": True,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "is_superuser": user.is_superuser,
+                    "is_staff": user.is_staff,
+                    "profile": profile_data,
+                },
+            })
+        except Exception as e:
+            logger.error(f"CheckAuth error: {str(e)}", exc_info=True)
+            return Response(
+                {"authenticated": False}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
 
 
