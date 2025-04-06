@@ -147,8 +147,16 @@ class CustomTokenRefreshView(TokenRefreshView):
                 {"error": "Refresh token expired or invalid, please login again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE"],
+                path="/",
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            )
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
+                path="/",
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            )
 
             return response
 
