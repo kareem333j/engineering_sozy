@@ -299,19 +299,24 @@ class CheckAuthView(APIView):
 
             user, _ = user_auth_tuple
             profile = get_object_or_404(Profile, user=user)
-            
-            return Response({
-                "authenticated": True,
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "profile": ProfileSerializer(profile).data
-                }
-            })
-            
-        except Exception as e:
+            profile_data = ProfileSerializer(profile, context={"request": request}).data
+
             return Response(
-                {"authenticated": False, "error": str(e)},
+                {
+                    "authenticated": True,
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "is_superuser": user.is_superuser,
+                        "is_staff": user.is_staff,
+                        "profile": profile_data,
+                    },
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error in CheckAuthView: {str(e)}")
+            return Response(
+                {"authenticated": False, "error": str(e)}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
