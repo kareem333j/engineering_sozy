@@ -17,6 +17,10 @@ from .models import User
 from api.views import IsStaffOrSuperUser
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
 from django.conf import settings
+import json
+import logging
+from rest_framework.parsers import JSONParser
+from io import BytesIO
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -87,31 +91,51 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return response
 
 
+logger = logging.getLogger(__name__)
+
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("refresh_token")
 
         if not refresh_token:
+            logger.warning("Refresh token not found in cookies.")
             return Response(
-                {"error": "No refresh token found"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Refresh token not found"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        request.data["refresh"] = refresh_token
-        response = super().post(request, *args, **kwargs)
+        try:
+            # إعادة بناء request.data بشكل صحيح وآمن
+            data = {"refresh": refresh_token}
+            stream = BytesIO(json.dumps(data).encode("utf-8"))
+            parser = JSONParser()
+            parsed_data = parser.parse(stream)
+            request._full_data = parsed_data
 
-        if response.status_code == 200:
-            access_token = response.data.get("access")
-            if access_token:
-                response.set_cookie(
-                    key="access_token",
-                    value=access_token,
-                    httponly=True,
-                    secure=True,
-                    samesite="None",
-                    path="/",
-                )
+            # تنفيذ العملية الأصلية
+            response = super().post(request, *args, **kwargs)
 
-        return response
+            if response.status_code == 200:
+                access_token = response.data.get("access")
+                if access_token:
+                    response.set_cookie(
+                        key="access_token",
+                        value=access_token,
+                        httponly=True,
+                        secure=True,
+                        samesite="None",
+                        path="/",
+                    )
+                    # حذف التوكن من body للزيادة في الأمان
+                    response.data.pop("access", None)
+                    
+            return response
+
+        except Exception as e:
+            logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Something went wrong during token refresh"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class CustomUserCreate(APIView):
