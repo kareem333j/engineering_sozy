@@ -80,6 +80,7 @@ class ProfileSerializerForMe(serializers.ModelSerializer):
     start_date = serializers.CharField(source='user.start_date',read_only=True)
     last_login = serializers.CharField(source='user.last_login',read_only=True)
     subscribed_courses = serializers.SerializerMethodField()
+    devices = serializers.SerializerMethodField()
     
     class Meta:
         model = Profile
@@ -98,6 +99,11 @@ class ProfileSerializerForMe(serializers.ModelSerializer):
         active_subs = obj.subscribed_user.filter(is_active=True).select_related('course')
         courses = [sub.course for sub in active_subs]
         return CourseSerializerForProfile(courses, many=True, context=self.context).data
+    
+    def get_devices(self, obj):
+        devices = obj.devices or []  
+        reversed_devices = list(reversed(devices))
+        return reversed_devices
     
 class ProfileSerializerForUpdate(serializers.ModelSerializer):
     class Meta:
