@@ -169,21 +169,32 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        auth = CookieJWTAuthentication()
-        user_auth_tuple = auth.authenticate(request)
-        if user_auth_tuple:
-            user, _ = user_auth_tuple
-            profile = get_object_or_404(Profile, user=user)
-            profile.is_logged_in = False
-            profile.current_session_key = None
-            profile.save()
+        try:
+            refresh_token = request.COOKIES.get("refresh_token")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
 
-        response = Response(
-            {"message": "Logged out successfully"}, status=status.HTTP_205_RESET_CONTENT
-        )
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token")
-        return response
+            auth = CookieJWTAuthentication()
+            user_auth_tuple = auth.authenticate(request)
+            if user_auth_tuple:
+                user, _ = user_auth_tuple
+                profile = get_object_or_404(Profile, user=user)
+                profile.is_logged_in = False
+                profile.current_session_key = None
+                profile.save()
+
+            response = Response(
+                {"message": "Logged out successfully"},
+                status=status.HTTP_205_RESET_CONTENT
+            )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+
+            return response
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class CheckAuthView(APIView):
