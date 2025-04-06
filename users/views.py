@@ -104,14 +104,12 @@ class CustomTokenRefreshView(TokenRefreshView):
             )
 
         try:
-            # إعادة بناء request.data بشكل صحيح وآمن
             data = {"refresh": refresh_token}
             stream = BytesIO(json.dumps(data).encode("utf-8"))
             parser = JSONParser()
             parsed_data = parser.parse(stream)
             request._full_data = parsed_data
 
-            # تنفيذ العملية الأصلية
             response = super().post(request, *args, **kwargs)
 
             if response.status_code == 200:
@@ -125,7 +123,6 @@ class CustomTokenRefreshView(TokenRefreshView):
                         samesite="None",
                         path="/",
                     )
-                    # حذف التوكن من body للزيادة في الأمان
                     response.data.pop("access", None)
                     
             return response
