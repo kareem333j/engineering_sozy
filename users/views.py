@@ -170,11 +170,17 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
+            # 1. Blacklist the refresh token if exists
             refresh_token = request.COOKIES.get("refresh_token")
             if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
+                try:
+                    token = RefreshToken(refresh_token)
+                    token.blacklist()
+                except Exception:
+                    # ممكن يكون التوكن أصلاً مش صالح أو اتحذف
+                    pass
 
+            # 2. Logout user from server session
             auth = CookieJWTAuthentication()
             user_auth_tuple = auth.authenticate(request)
             if user_auth_tuple:
@@ -184,16 +190,19 @@ class LogoutView(APIView):
                 profile.current_session_key = None
                 profile.save()
 
+            # 3. Clear cookies
             response = Response(
                 {"message": "Logged out successfully"},
-                status=status.HTTP_205_RESET_CONTENT
+                status=status.HTTP_205_RESET_CONTENT,
             )
             response.delete_cookie("access_token")
             response.delete_cookie("refresh_token")
 
             return response
+
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
