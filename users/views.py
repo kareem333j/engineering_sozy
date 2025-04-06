@@ -108,11 +108,28 @@ class CustomTokenRefreshView(TokenRefreshView):
             )
 
         try:
-            # تحقق من صلاحية الـ refresh token قبل استخدامه
+            # تحقق من صلاحية الـ refresh token أولاً
             token = RefreshToken(refresh_token)
+            
+            # إذا كان التوكن منتهي الصلاحية
             if token.payload.get('exp') < int(timezone.now().timestamp()):
-                raise TokenError("Refresh token expired")
+                user_id = token.payload.get('user_id')
+                if user_id:
+                    try:
+                        user = User.objects.get(id=user_id)
+                        force_logout_user(user)
+                    except Exception as e:
+                        logger.error(f"Failed to logout user: {str(e)}")
+                
+                response = Response(
+                    {"error": "Refresh token expired, please login again"},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+                response.delete_cookie('access_token')
+                response.delete_cookie('refresh_token')
+                return response
 
+            # إذا كان التوكن صالحاً، تابع العملية الطبيعية
             data = {"refresh": refresh_token}
             stream = BytesIO(json.dumps(data).encode("utf-8"))
             parser = JSONParser()
@@ -137,51 +154,15 @@ class CustomTokenRefreshView(TokenRefreshView):
 
             return response
 
-        except (TokenError, InvalidToken) as e:
-            logger.error(f"Refresh token error: {str(e)}")
-            
-            # محاولة الحصول على المستخدم من الـ refresh token المنتهي
-            try:
-                token = RefreshToken(refresh_token)
-                user_id = token.payload.get('user_id')
-                if user_id:
-                    force_logout_user(User.objects.get(id=user_id))
-            except Exception as e:
-                logger.error(f"Error updating user status: {str(e)}")
-
-            response = Response(
-                {"error": "Refresh token expired or invalid, please login again."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-            response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE"],
-                path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-            )
-            response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
-                path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-            )
-            return response
-
         except Exception as e:
-            logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
+            logger.error(f"Token refresh error: {str(e)}")
             
             response = Response(
-                {"error": "An error occurred during token refresh"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "Invalid refresh token, please login again"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
-            response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE"],
-                path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-            )
-            response.delete_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
-                path="/",
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-            )
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
             return response
 
 
@@ -318,24 +299,19 @@ class CheckAuthView(APIView):
 
             user, _ = user_auth_tuple
             profile = get_object_or_404(Profile, user=user)
-            profile_data = ProfileSerializer(profile, context={"request": request}).data
-
-            return Response(
-                {
-                    "authenticated": True,
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "is_superuser": user.is_superuser,
-                        "is_staff": user.is_staff,
-                        "profile": profile_data,
-                    },
+            
+            return Response({
+                "authenticated": True,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "profile": ProfileSerializer(profile).data
                 }
-            )
+            })
+            
         except Exception as e:
-            logger.error(f"Error in CheckAuthView: {str(e)}")
             return Response(
-                {"authenticated": False, "error": str(e)}, 
+                {"authenticated": False, "error": str(e)},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
