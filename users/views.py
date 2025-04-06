@@ -201,14 +201,13 @@ class LogoutView(APIView):
                 path="/",
                 domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
                 samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
             )
+
             response.delete_cookie(
                 settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
                 path="/",
                 domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
                 samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
             )
 
 
