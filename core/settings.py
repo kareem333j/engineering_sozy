@@ -137,7 +137,7 @@ SIMPLE_JWT = {
     "LEEWAY": 10,
     "AUTH_COOKIE": "access_token",
     "AUTH_COOKIE_REFRESH": "refresh_token",
-    "AUTH_COOKIE_DOMAIN": ".engineeringsozy0.vercel.app" if not DEBUG else None,
+    "AUTH_COOKIE_DOMAIN": "engineeringsozy0.vercel.app" if not DEBUG else None,
     "AUTH_COOKIE_SECURE": True,
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_PATH": "/",
