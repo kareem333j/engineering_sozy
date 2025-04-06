@@ -24,6 +24,9 @@ from rest_framework.parsers import JSONParser
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from io import BytesIO
 from .auth_utils import force_logout_user
+import jwt
+from rest_framework_simplejwt.settings import api_settings
+
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -141,10 +144,23 @@ class CustomTokenRefreshView(TokenRefreshView):
             logger.error(f"Refresh token error: {str(e)}")
             
             try:
-                token = RefreshToken(refresh_token)
-                user_id = token.payload.get('user_id')
-                print("Refresh token::::::::::", token)
-                print("user_id::::::::::", user_id)
+                # token = RefreshToken(refresh_token)
+                # user_id = token.payload.get('user_id')
+                # print("Refresh token::::::::::", token)
+                # print("user_id::::::::::", user_id)
+                try:
+                    payload = jwt.decode(
+                        refresh_token,
+                        settings.SECRET_KEY,
+                        algorithms=[api_settings.ALGORITHM],
+                        options={"verify_exp": False}  # نفك التوكن حتى لو منتهي
+                    )
+                    user_id = payload.get("user_id")
+                    if user_id:
+                        force_logout_user(User.objects.get(id=user_id))
+                except Exception as decode_error:
+                    logger.error(f"Couldn't decode token payload: {decode_error}")
+
                 if user_id:
                     force_logout_user(User.objects.get(id=user_id))
             except Exception as e:
