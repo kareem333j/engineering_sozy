@@ -199,17 +199,13 @@ class LogoutView(APIView):
             response.delete_cookie(
                 settings.SIMPLE_JWT["AUTH_COOKIE"],
                 path="/",
-                domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
                 samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             )
-
             response.delete_cookie(
                 settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
                 path="/",
-                domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
                 samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             )
-
 
             return response
 
