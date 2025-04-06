@@ -143,6 +143,8 @@ class CustomTokenRefreshView(TokenRefreshView):
             try:
                 token = RefreshToken(refresh_token)
                 user_id = token.payload.get('user_id')
+                print("Refresh token::::::::::", token)
+                print("user_id::::::::::", user_id)
                 if user_id:
                     force_logout_user(User.objects.get(id=user_id))
             except Exception as e:
