@@ -9,6 +9,7 @@ from .models import Profile
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from .auth_utils import force_logout_user
+from .models import User
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +24,16 @@ class CookieJWTAuthentication(JWTAuthentication):
                 access_token = auth_header.split(' ')[1]
         
         if not access_token:
-            # إذا لم يكن هناك token، نتحقق من وجود refresh token
+            # إذا لم يكن هناك access token، نتحقق من وجود refresh token
             refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
             if refresh_token:
                 try:
-                    # إذا كان هناك refresh token منتهي الصلاحية، نقوم بتسجيل الخروج
-                    token = AccessToken(refresh_token)
-                    user = self.get_user(token)
-                    profile = get_object_or_404(Profile, user=user)
-                    profile.is_logged_in = False
-                    profile.current_session_key = None
-                    profile.save()
+                    token = RefreshToken(refresh_token)
+                    if token.payload.get('exp') < int(timezone.now().timestamp()):
+                        # إذا كان الـ refresh token منتهي الصلاحية
+                        user_id = token.payload.get('user_id')
+                        if user_id:
+                            force_logout_user(User.objects.get(id=user_id))
                 except (InvalidToken, TokenError):
                     pass
             return None
@@ -60,13 +60,13 @@ class CookieJWTAuthentication(JWTAuthentication):
             try:
                 refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
                 if refresh_token:
-                    token = RefreshToken(refresh_token)  # استخدم RefreshToken بدلاً من AccessToken
-                    user = self.get_user(token.access_token)  # استخدم access_token المضمن داخل الـ refresh
-                    # profile = get_object_or_404(Profile, user=user)
-                    # profile.is_logged_in = False
-                    # profile.current_session_key = None
-                    # profile.save()
-                    force_logout_user(user)
+                    try:
+                        token = RefreshToken(refresh_token)
+                        user_id = token.payload.get('user_id')
+                        if user_id:
+                            force_logout_user(User.objects.get(id=user_id))
+                    except Exception:
+                        pass
             except Exception as inner_e:
                 logger.warning(f"Failed to auto-logout using refresh token: {str(inner_e)}")
             raise AuthenticationFailed("Invalid or expired token")

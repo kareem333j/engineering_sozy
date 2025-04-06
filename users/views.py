@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils.timezone import now
+from django.utils import timezone
 import datetime
 from .serializers import *
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -20,7 +21,9 @@ from django.conf import settings
 import json
 import logging
 from rest_framework.parsers import JSONParser
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from io import BytesIO
+from .auth_utils import force_logout_user
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -100,10 +103,16 @@ class CustomTokenRefreshView(TokenRefreshView):
         if not refresh_token:
             logger.warning("Refresh token not found in cookies.")
             return Response(
-                {"error": "Refresh token not found"}, status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Refresh token not found"}, 
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
         try:
+            # تحقق من صلاحية الـ refresh token قبل استخدامه
+            token = RefreshToken(refresh_token)
+            if token.payload.get('exp') < int(timezone.now().timestamp()):
+                raise TokenError("Refresh token expired")
+
             data = {"refresh": refresh_token}
             stream = BytesIO(json.dumps(data).encode("utf-8"))
             parser = JSONParser()
@@ -122,24 +131,23 @@ class CustomTokenRefreshView(TokenRefreshView):
                         secure=True,
                         samesite="None",
                         path="/",
+                        expires=now() + datetime.timedelta(minutes=10),
                     )
                     response.data.pop("access", None)
 
             return response
 
-        except Exception as e:
-            logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
+        except (TokenError, InvalidToken) as e:
+            logger.error(f"Refresh token error: {str(e)}")
+            
+            # محاولة الحصول على المستخدم من الـ refresh token المنتهي
             try:
-                auth = CookieJWTAuthentication()
-                user_auth_tuple = auth.authenticate(request)
-                if user_auth_tuple:
-                    user, _ = user_auth_tuple
-                    profile = get_object_or_404(Profile, user=user)
-                    profile.is_logged_in = False
-                    profile.current_session_key = None
-                    profile.save()
-            except Exception as logout_err:
-                logger.warning(f"Error during auto-logout on refresh failure: {str(logout_err)}")
+                token = RefreshToken(refresh_token)
+                user_id = token.payload.get('user_id')
+                if user_id:
+                    force_logout_user(User.objects.get(id=user_id))
+            except Exception as e:
+                logger.error(f"Error updating user status: {str(e)}")
 
             response = Response(
                 {"error": "Refresh token expired or invalid, please login again."},
@@ -155,7 +163,25 @@ class CustomTokenRefreshView(TokenRefreshView):
                 path="/",
                 samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             )
+            return response
 
+        except Exception as e:
+            logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
+            
+            response = Response(
+                {"error": "An error occurred during token refresh"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE"],
+                path="/",
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            )
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
+                path="/",
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            )
             return response
 
 
@@ -266,34 +292,79 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 class CheckAuthView(APIView):
     def get(self, request):
         auth = CookieJWTAuthentication()
-        user_auth_tuple = auth.authenticate(request)
+        try:
+            user_auth_tuple = auth.authenticate(request)
+            
+            if user_auth_tuple is None:
+                # تحقق من وجود refresh token منتهي الصلاحية
+                refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
+                if refresh_token:
+                    try:
+                        token = RefreshToken(refresh_token)
+                        if token.payload.get('exp') < int(timezone.now().timestamp()):
+                            user_id = token.payload.get('user_id')
+                            if user_id:
+                                force_logout_user(User.objects.get(id=user_id))
+                    except Exception:
+                        pass
+                
+                return Response(
+                    {"authenticated": False}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
-        if user_auth_tuple is None:
+            user, _ = user_auth_tuple
+            profile = get_object_or_404(Profile, user=user)
+            profile_data = ProfileSerializer(profile, context={"request": request}).data
+
             return Response(
-                {"authenticated": False}, status=status.HTTP_401_UNAUTHORIZED
+                {
+                    "authenticated": True,
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "is_superuser": user.is_superuser,
+                        "is_staff": user.is_staff,
+                        "profile": profile_data,
+                    },
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error in CheckAuthView: {str(e)}")
+            return Response(
+                {"authenticated": False, "error": str(e)}, 
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
-        user, _ = user_auth_tuple
-        profile = get_object_or_404(Profile, user=user)
-        profile_data = ProfileSerializer(profile, context={"request": request}).data
+# class CheckAuthView(APIView):
+#     def get(self, request):
+#         auth = CookieJWTAuthentication()
+#         user_auth_tuple = auth.authenticate(request)
 
-        return Response(
-            {
-                "authenticated": True,
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "is_superuser": user.is_superuser,
-                    "is_staff": user.is_staff,
-                    "profile": profile_data,
-                },
-            }
-        )
+#         if user_auth_tuple is None:
+#             return Response(
+#                 {"authenticated": False}, status=status.HTTP_401_UNAUTHORIZED
+#             )
+
+#         user, _ = user_auth_tuple
+#         profile = get_object_or_404(Profile, user=user)
+#         profile_data = ProfileSerializer(profile, context={"request": request}).data
+
+#         return Response(
+#             {
+#                 "authenticated": True,
+#                 "user": {
+#                     "id": user.id,
+#                     "email": user.email,
+#                     "is_superuser": user.is_superuser,
+#                     "is_staff": user.is_staff,
+#                     "profile": profile_data,
+#                 },
+#             }
+#         )
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
