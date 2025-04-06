@@ -13,6 +13,7 @@ class VideoSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     is_liked_by_user = serializers.SerializerMethodField()
     course_title = serializers.CharField(source='course.title',read_only=True)
+    cover = serializers.SerializerMethodField()
     
     class Meta:
         model = Video
@@ -26,12 +27,19 @@ class VideoSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user.profile).exists()
         return False
+    
+    def get_cover(self, obj):
+        request = self.context.get("request")
+        if obj.cover:  
+            return request.build_absolute_uri(obj.cover.url) if request else obj.cover.url
+        return None 
 
 class RecommendedVideoSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source='author.full_name',read_only=True)
     course_name = serializers.CharField(source='course.title',read_only=True)
     more_info = VideoViewSerializer(source='views', read_only=True)
     likes_count = serializers.SerializerMethodField()
+    cover = serializers.SerializerMethodField()
     
     class Meta:
         model = Video
@@ -39,6 +47,12 @@ class RecommendedVideoSerializer(serializers.ModelSerializer):
         
     def get_likes_count(self, obj):
         return obj.likes.count()
+    
+    def get_cover(self, obj):
+        request = self.context.get("request")
+        if obj.cover:  
+            return request.build_absolute_uri(obj.cover.url) if request else obj.cover.url
+        return None 
 
 class CourseSerializer(serializers.ModelSerializer):
     videos = serializers.SerializerMethodField()
