@@ -6,7 +6,9 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from .models import Profile
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
+from .auth_utils import force_logout_user
 
 logger = logging.getLogger(__name__)
 
@@ -55,18 +57,18 @@ class CookieJWTAuthentication(JWTAuthentication):
             
         except (InvalidToken, TokenError) as e:
             logger.warning(f"Invalid token: {str(e)}")
-            # عند فشل المصادقة، نقوم بتسجيل الخروج
             try:
                 refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
                 if refresh_token:
-                    token = AccessToken(refresh_token)
-                    user = self.get_user(token)
-                    profile = get_object_or_404(Profile, user=user)
-                    profile.is_logged_in = False
-                    profile.current_session_key = None
-                    profile.save()
-            except Exception:
-                pass
+                    token = RefreshToken(refresh_token)  # استخدم RefreshToken بدلاً من AccessToken
+                    user = self.get_user(token.access_token)  # استخدم access_token المضمن داخل الـ refresh
+                    # profile = get_object_or_404(Profile, user=user)
+                    # profile.is_logged_in = False
+                    # profile.current_session_key = None
+                    # profile.save()
+                    force_logout_user(user)
+            except Exception as inner_e:
+                logger.warning(f"Failed to auto-logout using refresh token: {str(inner_e)}")
             raise AuthenticationFailed("Invalid or expired token")
         except Profile.DoesNotExist:
             logger.error(f"Profile not found for user {user.id}")

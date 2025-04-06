@@ -129,8 +129,6 @@ class CustomTokenRefreshView(TokenRefreshView):
 
         except Exception as e:
             logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
-
-            # 👇 إغلاق الجلسة في حالة حدوث خطأ في التحديث
             try:
                 auth = CookieJWTAuthentication()
                 user_auth_tuple = auth.authenticate(request)
