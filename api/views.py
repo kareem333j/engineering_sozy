@@ -8,6 +8,7 @@ from rest_framework import status,mixins
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Count
 from itertools import chain
+from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
 
 
 # custom permissions
@@ -296,6 +297,7 @@ class RetrieveUpdateDestroyCourse(generics.RetrieveUpdateDestroyAPIView):
 class AddVideo(generics.CreateAPIView):
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
+    parser_classes = [MultiPartParser, FormParser]
     
     def create(self, request, *args, **kwargs):
         user = self.request.user.profile
@@ -315,6 +317,7 @@ class AddVideo(generics.CreateAPIView):
 class UpdateVideo(generics.UpdateAPIView):
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
+    parser_classes = [MultiPartParser, FormParser]
     queryset = Video.objects.all()
     
 class DeleteVideo(generics.DestroyAPIView):
