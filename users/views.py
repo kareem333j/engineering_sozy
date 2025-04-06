@@ -16,6 +16,7 @@ from rest_framework import generics
 from .models import User
 from api.views import IsStaffOrSuperUser
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
+from django.conf import settings
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -193,10 +194,23 @@ class LogoutView(APIView):
             # 3. Clear cookies
             response = Response(
                 {"message": "Logged out successfully"},
-                status=status.HTTP_205_RESET_CONTENT,
+                status=status.HTTP_200_OK,
             )
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE"],
+                path="/",
+                domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+            )
+            response.delete_cookie(
+                settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"],
+                path="/",
+                domain=settings.SIMPLE_JWT["AUTH_COOKIE_DOMAIN"],
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+            )
+
 
             return response
 
