@@ -124,15 +124,34 @@ class CustomTokenRefreshView(TokenRefreshView):
                         path="/",
                     )
                     response.data.pop("access", None)
-                    
+
             return response
 
         except Exception as e:
             logger.error(f"Error during token refresh: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Something went wrong during token refresh"},
+
+            # 👇 إغلاق الجلسة في حالة حدوث خطأ في التحديث
+            try:
+                auth = CookieJWTAuthentication()
+                user_auth_tuple = auth.authenticate(request)
+                if user_auth_tuple:
+                    user, _ = user_auth_tuple
+                    profile = get_object_or_404(Profile, user=user)
+                    profile.is_logged_in = False
+                    profile.current_session_key = None
+                    profile.save()
+            except Exception as logout_err:
+                logger.warning(f"Error during auto-logout on refresh failure: {str(logout_err)}")
+
+            response = Response(
+                {"error": "Refresh token expired or invalid, please login again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+
+            return response
+
 
 
 class CustomUserCreate(APIView):
