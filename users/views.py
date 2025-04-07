@@ -460,3 +460,42 @@ class UsersList(generics.ListAPIView):
     
     def get_queryset(self):
         return User.objects.filter(profile__is_private = False)
+    
+class SearchUsersList(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
+    serializer_class = UserSerializerForAdmin
+
+    def get_queryset(self):
+        value = self.request.query_params.get('value', '').strip()
+        queryset = User.objects.filter(profile__is_private=False)
+
+        if value:
+            queryset = queryset.filter(
+                Q(profile__full_name__icontains=value) |
+                Q(email__icontains=value) |
+                Q(profile__profile_id__icontains=value)
+            )
+
+        return queryset
+    
+    
+# reset passwords to all users from admin
+class AdminResetUserPassword(APIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
+
+    def post(self, request, profile_id):
+        target_profile = get_object_or_404(Profile, profile_id=profile_id)
+        target_user = target_profile.user
+
+        if request.user.is_staff and not request.user.is_superuser and target_user.is_superuser:
+            return Response({"error": "لا يمكنك تغيير كلمة مرور مدير النظام."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        serializer = AdminResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            new_password = serializer.validated_data['password']
+            target_user.set_password(new_password)
+            target_user.save()
+            return Response({"message": "تم تغيير كلمة المرور بنجاح."}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

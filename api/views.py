@@ -64,26 +64,44 @@ class VideosList(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user.profile
         course_pk = self.kwargs["course_title"]
-        try:
-            course = Course.active_objects.get(
-                title=course_pk,
-                subscriber__user=user,
-                subscriber__is_active=True
-            )
-        except Course.DoesNotExist:
-            if course_pk.isdigit():
-                try:
-                    course = Course.active_objects.get(
-                        id=course_pk,
-                        subscriber__user=user,
-                        subscriber__is_active=True
-                    )
-                except Course.DoesNotExist:
+        if user.user.is_superuser or user.user.is_staff:
+            try:
+                course = Course.objects.get(
+                    title=course_pk,
+                )
+            except Course.DoesNotExist:
+                if course_pk.isdigit():
+                    try:
+                        course = Course.objects.get(
+                            id=course_pk,
+                        )
+                    except Course.DoesNotExist:
+                        return Video.objects.none()
+                else:
+                    return Video.objects.none()
+                
+            return Video.objects.all().filter(course=course)
+        else:
+            try:
+                course = Course.active_objects.get(
+                    title=course_pk,
+                    subscriber__user=user,
+                    subscriber__is_active=True
+                )
+            except Course.DoesNotExist:
+                if course_pk.isdigit():
+                    try:
+                        course = Course.active_objects.get(
+                            id=course_pk,
+                            subscriber__user=user,
+                            subscriber__is_active=True
+                        )
+                    except Course.DoesNotExist:
+                        return Video.active_objects.none()
+                else:
                     return Video.active_objects.none()
-            else:
-                return Video.active_objects.none()
-            
-        return Video.active_objects.active().filter(course=course)
+                
+            return Video.active_objects.active().filter(course=course)
 
 
 class RetrieveVideo(generics.RetrieveAPIView):

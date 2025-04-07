@@ -48,7 +48,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.profile.save()
         return user
     
-    
+class AdminResetPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError("كلمتا المرور غير متطابقتين")
+        return attrs
+
+    def save(self, user):
+        user.set_password(self.validated_data['password'])
+        user.save()
+        return user
 class ProfileSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
     is_superuser = serializers.CharField(source='user.is_superuser',read_only=True)

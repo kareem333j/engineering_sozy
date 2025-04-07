@@ -17,9 +17,11 @@ urlpatterns = [
     
     # admin
     path("all", UsersList.as_view(), name="all_users"),
+    path("all/search/", SearchUsersList.as_view(), name="search_users"),
 
     # auth
     path("register/", CustomUserCreate.as_view(), name="create_user"),
+    path("admin/reset-password/<str:profile_id>/", AdminResetUserPassword.as_view(), name="admin-reset-password"),
     path("logout/blacklist/", BlacklistTokenUpdateView.as_view(), name="blacklist"),
     path("logout/", LogoutView.as_view(), name="logout"), 
     path("check-auth/", CheckAuthView.as_view(), name="check_auth"),
