@@ -164,10 +164,10 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
         
 class ProfileSerializerSpecific(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
-    
+    email = serializers.EmailField(source='user.email')
     class Meta:
         model = Profile
-        fields = ['profile_id', 'avatar','is_private', 'full_name']
+        fields = ['profile_id', 'avatar','is_private', 'full_name','email']
         
     def get_avatar(self, obj):
         request = self.context.get("request")

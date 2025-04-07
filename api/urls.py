@@ -23,6 +23,7 @@ urlpatterns = [
     # admin
     # admin -> course
     path('admin/courses_list', CoursesListAdmin.as_view(), name='courses_list_admin'),
+    path('admin/courses_list/search/', SearchCoursesForAdmin.as_view(), name='search_course'),
     path('admin/courses_list/options', CoursesListAdminOptions.as_view(), name='courses_list_options_admin'),
     path('admin/courses/add', AddCourse.as_view(), name='add_course'),
     path('admin/courses/course/<int:pk>', RetrieveUpdateDestroyCourse.as_view(), name='get_course'),
@@ -30,6 +31,7 @@ urlpatterns = [
     path('admin/courses/course/<int:pk>/delete', RetrieveUpdateDestroyCourse.as_view(), name='delete_course'),
     # admin -> subscription
     path('admin/courses/subscriptions/', SubscriptionsList.as_view(),name='subscriptions'),
+    path('admin/courses/subscriptions/search/', SearchSubscriptions.as_view(),name='search_subscriptions'),
     path('admin/courses/subscriptions/allUsers', getAllUsersForAddSubscription.as_view(),name='subscriptions_users'),
     path('admin/courses/subscriptions/allCourses', getAllCoursesForAddSubscription.as_view(),name='subscriptions_courses'),
     path('admin/courses/subscriptions/add/', AddSubscription.as_view(),name='add-subscription'),

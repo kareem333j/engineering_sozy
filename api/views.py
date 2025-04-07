@@ -9,6 +9,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.db.models import Count
 from itertools import chain
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser
+from django.db.models import Q
 
 
 # custom permissions
@@ -295,6 +296,18 @@ class CoursesListAdmin(generics.ListAPIView):
     serializer_class = CourseSerializerAdmin
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
     queryset = Course.objects.all()
+    
+class SearchCoursesForAdmin(generics.ListAPIView):
+    serializer_class = CourseSerializerAdmin
+    permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
+    def get_queryset(self):
+        value = self.request.query_params.get('value', '').strip()
+        if not value:
+            return Course.objects.all()
+        
+        return Course.objects.filter(
+            Q(title__icontains=value)
+        )
 
 class CoursesListAdminOptions(generics.ListAPIView):
     serializer_class = CourseSerializerOptions
@@ -350,7 +363,21 @@ class SubscriptionsList(generics.ListAPIView):
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
     serializer_class = SubscribeSerializerAdmin
     queryset = SubscribeCourse.objects.all()
-    
+
+class SearchSubscriptions(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
+    serializer_class = SubscribeSerializerAdmin
+
+    def get_queryset(self):
+        value = self.request.query_params.get('value', '').strip()
+        if not value:
+            return SubscribeCourse.objects.all()
+        
+        return SubscribeCourse.objects.filter(
+            Q(user__full_name__icontains=value) |
+            Q(user__user__email__icontains=value) |
+            Q(user__profile_id__icontains=value)
+        )
 class SubscriptionActivationUpdate(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
     serializer_class = SubscriptionActivationSerializer
