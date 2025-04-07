@@ -318,78 +318,78 @@ class LogoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CheckAuthView(APIView):
-    def get(self, request):
-        auth = CookieJWTAuthentication()
-        try:
-            user_auth_tuple = auth.authenticate(request)
-            
-            if user_auth_tuple is None:
-                refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
-                if refresh_token:
-                    try:
-                        token = RefreshToken(refresh_token)
-                        if token.payload.get('exp') < int(timezone.now().timestamp()):
-                            user_id = token.payload.get('user_id')
-                            if user_id:
-                                force_logout_user(User.objects.get(id=user_id))
-                    except Exception:
-                        pass
-                
-                return Response(
-                    {"authenticated": False}, 
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-
-            user, _ = user_auth_tuple
-            profile = get_object_or_404(Profile, user=user)
-            profile_data = ProfileSerializer(profile, context={"request": request}).data
-
-            return Response(
-                {
-                    "authenticated": True,
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "is_superuser": user.is_superuser,
-                        "is_staff": user.is_staff,
-                        "profile": profile_data,
-                    },
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error in CheckAuthView: {str(e)}")
-            return Response(
-                {"authenticated": False, "error": str(e)}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
 # class CheckAuthView(APIView):
 #     def get(self, request):
 #         auth = CookieJWTAuthentication()
-#         user_auth_tuple = auth.authenticate(request)
+#         try:
+#             user_auth_tuple = auth.authenticate(request)
+            
+#             if user_auth_tuple is None:
+#                 refresh_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
+#                 if refresh_token:
+#                     try:
+#                         token = RefreshToken(refresh_token)
+#                         if token.payload.get('exp') < int(timezone.now().timestamp()):
+#                             user_id = token.payload.get('user_id')
+#                             if user_id:
+#                                 force_logout_user(User.objects.get(id=user_id))
+#                     except Exception:
+#                         pass
+                
+#                 return Response(
+#                     {"authenticated": False}, 
+#                     status=status.HTTP_401_UNAUTHORIZED
+#                 )
 
-#         if user_auth_tuple is None:
+#             user, _ = user_auth_tuple
+#             profile = get_object_or_404(Profile, user=user)
+#             profile_data = ProfileSerializer(profile, context={"request": request}).data
+
 #             return Response(
-#                 {"authenticated": False}, status=status.HTTP_401_UNAUTHORIZED
+#                 {
+#                     "authenticated": True,
+#                     "user": {
+#                         "id": user.id,
+#                         "email": user.email,
+#                         "is_superuser": user.is_superuser,
+#                         "is_staff": user.is_staff,
+#                         "profile": profile_data,
+#                     },
+#                 }
+#             )
+#         except Exception as e:
+#             logger.error(f"Error in CheckAuthView: {str(e)}")
+#             return Response(
+#                 {"authenticated": False, "error": str(e)}, 
+#                 status=status.HTTP_401_UNAUTHORIZED
 #             )
 
-#         user, _ = user_auth_tuple
-#         profile = get_object_or_404(Profile, user=user)
-#         profile_data = ProfileSerializer(profile, context={"request": request}).data
+class CheckAuthView(APIView):
+    def get(self, request):
+        auth = CookieJWTAuthentication()
+        user_auth_tuple = auth.authenticate(request)
 
-#         return Response(
-#             {
-#                 "authenticated": True,
-#                 "user": {
-#                     "id": user.id,
-#                     "email": user.email,
-#                     "is_superuser": user.is_superuser,
-#                     "is_staff": user.is_staff,
-#                     "profile": profile_data,
-#                 },
-#             }
-#         )
+        if user_auth_tuple is None:
+            return Response(
+                {"authenticated": False}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        user, _ = user_auth_tuple
+        profile = get_object_or_404(Profile, user=user)
+        profile_data = ProfileSerializer(profile, context={"request": request}).data
+
+        return Response(
+            {
+                "authenticated": True,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "is_superuser": user.is_superuser,
+                    "is_staff": user.is_staff,
+                    "profile": profile_data,
+                },
+            }
+        )
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
