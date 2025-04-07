@@ -26,6 +26,8 @@ from io import BytesIO
 from .auth_utils import force_logout_user
 import jwt
 from rest_framework_simplejwt.settings import api_settings
+from django.db.models import Q, Value
+from django.db.models.functions import Concat
 
 
 
