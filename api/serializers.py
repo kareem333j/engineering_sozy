@@ -43,7 +43,7 @@ class RecommendedVideoSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Video
-        fields = ['id', 'title', 'priority', 'description', 'cover','course_name', 'created_dt', 'author', 'more_info', 'likes_count']
+        fields = ['id', 'title', 'is_active', 'priority', 'description', 'cover','course_name', 'created_dt', 'author', 'more_info', 'likes_count']
         
     def get_likes_count(self, obj):
         return obj.likes.count()

@@ -17,6 +17,8 @@ urlpatterns = [
     
     # admin
     path("all", UsersList.as_view(), name="all_users"),
+    path('all/delete/', DeleteNonAdminUsersView.as_view(), name='delete-non-admin-users'),
+    path('all/deactivate/', DeactivateNonAdminProfilesView.as_view(), name='deactivate-non-admin-profiles'),
     path("all/search/", SearchUsersList.as_view(), name="search_users"),
 
     # auth

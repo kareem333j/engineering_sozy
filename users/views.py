@@ -501,3 +501,34 @@ class AdminResetUserPassword(APIView):
             return Response({"message": "تم تغيير كلمة المرور بنجاح."}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+# actions on all users
+class DeleteNonAdminUsersView(APIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
+
+    def delete(self, request, *args, **kwargs):
+        deleted_count, _ = User.objects.filter(
+            is_superuser=False, is_staff=False
+        ).delete()
+
+        return Response(
+            {"detail": f"{deleted_count} user(s) deleted."},
+            status=status.HTTP_200_OK
+        )
+        
+class DeactivateNonAdminProfilesView(APIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
+
+    def post(self, request, *args, **kwargs):
+        profiles = Profile.objects.filter(
+            user__is_superuser=False,
+            user__is_staff=False,
+            is_active=True
+        )
+        updated_count = profiles.update(is_active=False)
+
+        return Response(
+            {"detail": f"{updated_count} profile(s) deactivated."},
+            status=status.HTTP_200_OK
+        )

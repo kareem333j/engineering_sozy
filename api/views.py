@@ -267,12 +267,20 @@ class RecommendedVideosAPIView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user.profile
         video_id = self.kwargs.get('pk')
-        current_video = Video.active_objects.get(id=video_id)
-        course = current_video.course
-        same_course_videos = Video.active_objects.filter(course=course)
-        final_recommendations = same_course_videos.order_by('priority')
-        
-        return final_recommendations
+        if self.request.user.is_superuser or self.request.user.is_staff:
+            current_video = Video.objects.get(id=video_id)
+            course = current_video.course
+            same_course_videos = Video.objects.filter(course=course)
+            final_recommendations = same_course_videos.order_by('priority')
+            
+            return final_recommendations
+        else:
+            current_video = Video.active_objects.active().get(id=video_id)
+            course = current_video.course
+            same_course_videos = Video.active_objects.active().filter(course=course)
+            final_recommendations = same_course_videos.order_by('priority')
+            
+            return final_recommendations
     
     
 # admin view
