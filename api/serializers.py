@@ -17,7 +17,7 @@ class VideoSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Video
-        fields = ['id','course', 'title','course_title', 'description', 'embed_code','is_active', 'cover', 'created_dt','update_dt','author','more_info','likes_count','is_liked_by_user']
+        fields = ['id','course', 'title', 'priority','course_title', 'description', 'embed_code','is_active', 'cover', 'created_dt','update_dt','author','more_info','likes_count','is_liked_by_user']
         
     def get_likes_count(self, obj):
         return obj.likes.count()
@@ -43,7 +43,7 @@ class RecommendedVideoSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Video
-        fields = ['id', 'title', 'description', 'cover','course_name', 'created_dt', 'author', 'more_info', 'likes_count']
+        fields = ['id', 'title', 'priority', 'description', 'cover','course_name', 'created_dt', 'author', 'more_info', 'likes_count']
         
     def get_likes_count(self, obj):
         return obj.likes.count()
@@ -179,7 +179,7 @@ class CommentSerializer(serializers.ModelSerializer):
         return count_replies(obj)
     
     def get_likes_count(self, obj):
-        return obj.likes.count()  
+        return obj.likes.distinct().count() 
 
     def get_is_liked_by_user(self, obj):
         request = self.context.get('request', None)

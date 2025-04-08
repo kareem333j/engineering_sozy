@@ -42,4 +42,5 @@ urlpatterns = [
     path('admin/video/add', AddVideo.as_view(), name='add_video'),
     path('admin/video/<str:pk>/edit', UpdateVideo.as_view(), name='update_video'),
     path('admin/video/<str:pk>/delete', DeleteVideo.as_view(), name='delete_video'),
+    path('admin/video/<int:pk>/swap-priority/', SwapVideoPriorityView.as_view(), name='swap-video-priority'),
 ]

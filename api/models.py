@@ -34,6 +34,10 @@ class Video(models.Model):
     update_dt = models.DateTimeField(auto_now=True, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='author')
+    priority = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['priority']
     
     objects = models.Manager()
     active_objects = ActiveObjectsQuerySet.as_manager()
@@ -74,12 +78,12 @@ class VideoComment(models.Model):
     active_objects = ActiveObjectsQuerySet.as_manager()
     
     class Meta:
-        ordering = ['likes','-created_dt']
+        ordering = ['-created_dt']
     def __str__(self):
         if self.parent:
-            return f'{self.content} Reply by ({self.user.user.user_name if self.user.user.user_name else self.user.user.email}) on comment ({self.parent.id})'
-        return f'{self.content} comment user ({self.user.user.user_name if self.user.user.user_name else self.user.user.email}) on video ({self.video.title})'
-
+            return f'{self.content} Reply by ({self.user.full_name if self.user.full_name else self.user.user.email}) on comment ({self.parent.id})'
+        return f'{self.content} comment user ({self.user.full_name if self.user.full_name else self.user.user.email}) on video ({self.video.title})'
+    
 class CommentLike(models.Model):
     user = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="comment_likes")
     comment = models.ForeignKey(VideoComment, on_delete=models.CASCADE, related_name="likes")

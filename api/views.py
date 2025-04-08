@@ -178,7 +178,7 @@ class VideoCommentsView(generics.ListAPIView):
         video_id = self.kwargs["pk"]
         video = get_object_or_404(Video, id=video_id)
         return VideoComment.active_objects.active().filter(
-            video=video, parent__isnull=True   # parent__isnull = True -> return parent comments only not child comments
+            video=video, parent__isnull=True 
         )
 
 
@@ -192,17 +192,24 @@ def get_client_ip(request):
 
 
 class ToggleCommentLikeView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
     def update(self, request, *args, **kwargs):
-        user = request.user.profile 
+        user = request.user.profile
         comment = get_object_or_404(VideoComment, id=self.kwargs['comment_id'])
 
-        like, created = CommentLike.objects.get_or_create(user=user, comment=comment)
+        existing_like = CommentLike.objects.filter(user=user, comment=comment).first()
 
-        if not created:
-            like.delete()
-            return Response({'message': 'Like removed', 'likes_count': comment.likes.count()}, status=status.HTTP_200_OK)
+        if existing_like:
+            existing_like.delete()
+            message = 'Like removed'
+        else:
+            CommentLike.objects.create(user=user, comment=comment)
+            message = 'Like added'
 
-        return Response({'message': 'Like added', 'likes_count': comment.likes.count()}, status=status.HTTP_201_CREATED)
+        likes_count = comment.likes.count()
+
+        return Response({'message': message, 'likes_count': likes_count}, status=status.HTTP_200_OK)
+
                 
 class DeleteComment(generics.DestroyAPIView):
     serializer_class = CommentSerializer
@@ -262,30 +269,8 @@ class RecommendedVideosAPIView(generics.ListAPIView):
         video_id = self.kwargs.get('pk')
         current_video = Video.active_objects.get(id=video_id)
         course = current_video.course
-
-        # videos from current video's course (exclude) current video
-        same_course_videos = Video.active_objects.filter(course=course).exclude(id=current_video.id)
-        
-        # videos from current video's course that have more likes
-        popular_videos = same_course_videos.annotate(
-            likes_count=Count('likes', distinct=True),  
-            views_count=Count('views', distinct=True)  
-        ).order_by('-likes_count', '-views_count')
-
-        
-        # videos from another courses that user subscribe in it
-        subscribed_courses = SubscribeCourse.objects.filter(user=user, is_active=True).values_list('course', flat=True)
-        other_course_videos = Video.active_objects.filter(course__in=subscribed_courses).exclude(course=course)
-        
-        # فيديوهات تفاعل معها طلاب لهم اهتمامات مشابهة
-        liked_videos = VideoLike.objects.filter(user=user).values_list('video', flat=True)
-        similar_users = VideoLike.objects.filter(video__in=liked_videos).exclude(user=user).values_list('user', flat=True)
-        similar_videos = VideoLike.objects.filter(user__in=similar_users).values_list('video', flat=True)
-        recommended_videos = Video.active_objects.filter(id__in=similar_videos).exclude(id=current_video.id)
-        
-        # collect all recommendations and remove duplicates
-        final_recommendations = list(set(chain(same_course_videos, popular_videos, other_course_videos, recommended_videos)))[:20]
-
+        same_course_videos = Video.active_objects.filter(course=course)
+        final_recommendations = same_course_videos.order_by('priority')
         
         return final_recommendations
     
@@ -328,12 +313,26 @@ class RetrieveUpdateDestroyCourse(generics.RetrieveUpdateDestroyAPIView):
 class AddVideo(generics.CreateAPIView):
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
-    parser_classes = [MultiPartParser, FormParser]
     
     def create(self, request, *args, **kwargs):
         user = self.request.user.profile
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            priority = serializer.validated_data.get('priority')
+            course = serializer.validated_data.get('course')
+
+            course_videos = Video.objects.filter(course=course)
+            max_priority = course_videos.aggregate(models.Max('priority'))['priority__max'] or 0
+
+            if priority > max_priority + 1:
+                serializer.validated_data['priority'] = max_priority + 1
+                priority = max_priority + 1
+
+            existing_video = course_videos.filter(priority=priority).first()
+            if existing_video:
+                existing_video.priority = max_priority + 1
+                existing_video.save()
+
             video = serializer.save(author=user)
             if video:
                 VideoViews.objects.create(video=video)
@@ -341,20 +340,99 @@ class AddVideo(generics.CreateAPIView):
                 video.delete()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
     
 class UpdateVideo(generics.UpdateAPIView):
     serializer_class = VideoSerializer
-    permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
-    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
     queryset = Video.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        old_priority = instance.priority
+        old_course = instance.course
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            new_priority = serializer.validated_data.get('priority', old_priority)
+            new_course = serializer.validated_data.get('course', old_course)
+
+            course_videos = Video.objects.filter(course=new_course).exclude(id=instance.id)
+            max_priority = course_videos.aggregate(models.Max('priority'))['priority__max'] or 0
+
+            # ✅ لو الأولوية أكبر من max الحالي، نحطها في الآخر
+            if new_priority > max_priority + 1:
+                serializer.validated_data['priority'] = max_priority + 1
+                new_priority = max_priority + 1
+
+            # ✅ لو فيه فيديو بنفس الأولوية، نعمل swap
+            if (new_priority != old_priority) or (new_course != old_course):
+                conflicting_video = course_videos.filter(priority=new_priority).first()
+
+                if conflicting_video:
+                    conflicting_video.priority = old_priority
+                    conflicting_video.save()
+
+            video = serializer.save()
+
+            return Response(VideoSerializer(video, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
     
 class DeleteVideo(generics.DestroyAPIView):
     serializer_class = VideoSerializer
-    permission_classes = [IsAuthenticated,IsStaffOrSuperUser]
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]
     queryset = Video.objects.all()
+
+    def perform_destroy(self, instance):
+        course = instance.course
+        deleted_priority = instance.priority
+        instance.delete()
+
+        videos_to_shift = Video.objects.filter(
+            course=course,
+            priority__gt=deleted_priority
+        ).order_by('priority')
+
+        for video in videos_to_shift:
+            video.priority -= 1
+            video.save()
+
+    
+class SwapVideoPriorityView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, IsStaffOrSuperUser]  
+
+    def post(self, request, *args, **kwargs):
+        video_id = kwargs.get('pk')
+        direction = request.data.get('direction')  
+
+        if direction not in ['up', 'down']:
+            return Response({'detail': 'Invalid direction.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            video = Video.objects.get(id=video_id)
+        except Video.DoesNotExist:
+            return Response({'detail': 'Video not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        current_priority = video.priority
+        target_priority = current_priority - 1 if direction == 'up' else current_priority + 1
+
+        try:
+            swap_video = Video.objects.get(course=video.course, priority=target_priority)
+        except Video.DoesNotExist:
+            return Response({'detail': 'No video to swap with'}, status=status.HTTP_400_BAD_REQUEST)
+
+        video.priority, swap_video.priority = swap_video.priority, video.priority
+        video.save()
+        swap_video.save()
+
+        return Response({'detail': 'Swapped successfully'}, status=status.HTTP_200_OK) 
     
     
     
