@@ -74,9 +74,10 @@ class SubscribeSerializer(serializers.ModelSerializer):
 class SubscribeSerializerAdmin(serializers.ModelSerializer):
     user = ProfileSerializerSpecific(read_only=True)
     course = serializers.CharField(source='course.title',read_only=True)
+    email = serializers.CharField(source='user.user.email',read_only=True)
     class Meta:
         model = SubscribeCourse
-        fields = ('id', 'user','course', 'is_active', 'created_dt')
+        fields = ('id', 'email','user','course', 'is_active', 'created_dt')
         
 class AddSubscribeSerializerAdmin(serializers.ModelSerializer):
     profile_id = serializers.CharField(write_only=True)
